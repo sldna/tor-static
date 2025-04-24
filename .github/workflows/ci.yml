@@ -40,7 +40,7 @@ jobs:
           CONTAINER=$(docker create tor-static-test:latest)
           docker start "$CONTAINER"
           sleep 5
-          docker exec "$CONTAINER" tor --verify-config --hush
+          docker exec "$CONTAINER" /tor/tor --verify-config --hush
           docker stop "$CONTAINER"
           docker rm "$CONTAINER"
 
