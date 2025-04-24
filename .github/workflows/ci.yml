@@ -30,6 +30,7 @@ jobs:
           file: Dockerfile
           push: false
           tags: |
+            tor-static-test
             ghcr.io/${{ github.repository_owner }}/tor-static:latest
 
       - name: Test Tor config
