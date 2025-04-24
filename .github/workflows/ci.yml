@@ -1,0 +1,64 @@
+name: CI & Publish
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for multi-arch, optional)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/tor-static:latest
+
+      - name: Test Tor config
+        run: |
+          # starte Container temporär
+          CONTAINER=$(docker create ghcr.io/${{ github.repository_owner }}/tor-static:latest)
+          docker start "$CONTAINER"
+          sleep 5
+          docker exec "$CONTAINER" tor --verify-config --hush
+          docker stop "$CONTAINER"
+          docker rm "$CONTAINER"
+
+  publish:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/tor-static:latest
+            ghcr.io/${{ github.repository_owner }}/tor-static:${{ github.sha }}
