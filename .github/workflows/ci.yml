@@ -16,7 +16,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Set up QEMU (for multi-arch, optional)
+      - name: Set up QEMU (optional)
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -35,7 +35,6 @@ jobs:
 
       - name: Test Tor config
         run: |
-          # starte Container temporär
           CONTAINER=$(docker create tor-static-test)
           docker start "$CONTAINER"
           sleep 5
