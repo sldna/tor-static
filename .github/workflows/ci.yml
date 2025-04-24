@@ -35,7 +35,7 @@ jobs:
       - name: Test Tor config
         run: |
           # starte Container temporär
-          CONTAINER=$(docker create ghcr.io/${{ github.repository_owner }}/tor-static:latest)
+          CONTAINER=$(docker create tor-static-test)
           docker start "$CONTAINER"
           sleep 5
           docker exec "$CONTAINER" tor --verify-config --hush
