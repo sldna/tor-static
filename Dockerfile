@@ -16,10 +16,10 @@ RUN apk add --no-cache \
     linux-headers
 
 # Versions
-ARG ZLIB_VERSION=1.2.13
+ARG ZLIB_VERSION=1.3.1
 ARG LIBEVENT_VERSION=2.1.12-stable
 ARG OPENSSL_VERSION=1.1.1w
-ARG TOR_VERSION=0.4.8
+ARG TOR_VERSION=tor-0.4.8.16
 
 # Installation prefixes
 ENV PREFIX_DIR=/usr/local
@@ -41,7 +41,7 @@ RUN wget https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz && \
 RUN wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz && \
     tar xzf openssl-${OPENSSL_VERSION}.tar.gz && \
     cd openssl-${OPENSSL_VERSION} && \
-    ./config no-shared no-dso no-hw --prefix=${OPENSSL_DIR} -fPIC && \
+    ./config no-shared no-dso --prefix=${OPENSSL_DIR} -fPIC && \
     make -j$(nproc) && \
     make install_sw
 
@@ -54,9 +54,9 @@ RUN wget https://github.com/libevent/libevent/releases/download/release-${LIBEVE
     make install
 
 # Tor clonen und bauen
-RUN git clone https://git.torproject.org/tor.git && \
+RUN git clone https://gitlab.torproject.org/tpo/core/tor.git && \
     cd tor && \
-    git checkout release-${TOR_VERSION} && \
+    git checkout ${TOR_VERSION} && \
     ./autogen.sh && \
     ./configure \
         --disable-asciidoc \
@@ -78,16 +78,24 @@ RUN git clone https://git.torproject.org/tor.git && \
 
 # Copy entrypoint and config into builder and set permissions
 RUN mkdir -p /build/scripts 
-COPY entrypoint.sh torrc.default /build/scripts/
-RUN chmod +x /build/scripts/entrypoint.sh
+COPY torrc.default /build/scripts/
 
 # Stage 2: Minimal scratch container
 FROM scratch
+
+LABEL org.opencontainers.image.source=https://github.com/sldna/tor-static
+LABEL org.opencontainers.image.vendor="sldna"
+LABEL org.opencontainers.image.authors="Sven Lidynia"
+LABEL org.opencontainers.image.description="static linked Tor proxy in a scratch container"
+LABEL org.opencontainers.image.licenses=MIT
+
+
 WORKDIR /tor
 
 # Binaries and scripts
 COPY --from=builder /build/tor/src/app/tor .
-ENTRYPOINT ["/tor/tor"]
+COPY --from=builder /build/scripts/torrc.default /torrc
+ENTRYPOINT ["/tor/tor", "-f", "/torrc"]
 
 # Healthcheck: prüft Konfig
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

@@ -2,7 +2,8 @@ name: CI & Publish
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*' # Nur Tags wie v1.0.0 oder v0.4.8.16 triggern diesen Workflow
 
 permissions:
   contents: read
@@ -10,11 +11,13 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-test:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # wichtig, damit Tags mit ausgecheckt werden
 
       - name: Set up QEMU (optional)
         uses: docker/setup-qemu-action@v3
@@ -22,34 +25,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        id: build
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile
-          push: false
-          load: true
-          tags: |
-            tor-static-test:latest
-            ghcr.io/${{ github.repository_owner }}/tor-static:latest
-
-      - name: Test Tor config
+      - name: Extract tag name
+        id: vars
         run: |
-          # starte Container temporär
-          CONTAINER=$(docker create tor-static-test:latest)
-          docker start "$CONTAINER"
-          sleep 5
-          docker exec "$CONTAINER" /tor/tor --verify-config --hush
-          docker stop "$CONTAINER"
-          docker rm "$CONTAINER"
-
-  publish:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repo
-        uses: actions/checkout@v4
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -58,7 +38,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -66,5 +46,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/tor-static:latest
-            ghcr.io/${{ github.repository_owner }}/tor-static:${{ github.sha }}
-
+            ghcr.io/${{ github.repository_owner }}/tor-static:${{ steps.vars.outputs.version }}
